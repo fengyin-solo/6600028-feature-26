@@ -89,7 +89,7 @@ export class SPHEngine {
   }
 
   initParticles(config: 'dam' | 'drop' | 'fountain' | 'wave', count?: number) {
-    const n = count ?? this.particles.length || 800
+    const n = count ?? (this.particles.length || 800)
     this.particles = []
 
     switch (config) {
@@ -324,5 +324,18 @@ export class SPHEngine {
         p.vy += (dy / dist) * factor
       }
     }
+  }
+
+  resize(newWidth: number, newHeight: number) {
+    const scaleX = newWidth / this.width
+    const scaleY = newHeight / this.height
+    for (const p of this.particles) {
+      p.x *= scaleX
+      p.y *= scaleY
+      p.vx *= scaleX
+      p.vy *= scaleY
+    }
+    this.width = newWidth
+    this.height = newHeight
   }
 }

@@ -4,15 +4,19 @@ import { useFluidStore } from '../store/fluid'
 
 const store = useFluidStore()
 const canvas = ref<HTMLCanvasElement | null>(null)
+const container = ref<HTMLDivElement | null>(null)
 
-const W = 800
-const H = 500
+const canvasWidth = ref(800)
+const canvasHeight = ref(500)
+const dpr = ref(window.devicePixelRatio || 1)
+
+let resizeObserver: ResizeObserver | null = null
+let resizeTimeout: number | null = null
 
 function velocityToColor(speed: number): string {
-  // Blue (slow) -> Green (medium) -> Red (fast)
   const maxSpeed = 200
   const t = Math.min(speed / maxSpeed, 1)
-  const hue = (1 - t) * 240 // 240=blue, 120=green, 0=red
+  const hue = (1 - t) * 240
   const sat = 80
   const light = 40 + t * 20
   return `hsl(${hue}, ${sat}%, ${light}%)`
@@ -22,16 +26,16 @@ function draw() {
   const ctx = canvas.value?.getContext('2d')
   if (!ctx) return
 
-  // Clear
+  const W = canvasWidth.value
+  const H = canvasHeight.value
+
   ctx.fillStyle = '#0c1222'
   ctx.fillRect(0, 0, W, H)
 
-  // Draw boundary walls
   ctx.strokeStyle = '#475569'
   ctx.lineWidth = 3
   ctx.strokeRect(2, 2, W - 4, H - 4)
 
-  // Draw grid (faint)
   ctx.strokeStyle = '#1e293b'
   ctx.lineWidth = 0.3
   for (let x = 0; x < W; x += 50) {
@@ -49,7 +53,6 @@ function draw() {
 
   if (!store.engine) return
 
-  // Draw density heatmap background (low-res)
   const gridSize = 20
   const gw = Math.ceil(W / gridSize)
   const gh = Math.ceil(H / gridSize)
@@ -73,7 +76,6 @@ function draw() {
     }
   }
 
-  // Draw particles
   const particles = store.engine.particles
   for (const p of particles) {
     const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy)
@@ -86,14 +88,12 @@ function draw() {
     ctx.fill()
   }
 
-  // FPS overlay
   ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
   ctx.fillRect(W - 80, 5, 75, 22)
   ctx.fillStyle = '#22c55e'
   ctx.font = 'bold 12px monospace'
   ctx.fillText(`FPS: ${store.fps}`, W - 74, 20)
 
-  // Frame count
   ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
   ctx.fillRect(W - 120, 30, 115, 22)
   ctx.fillStyle = '#94a3b8'
@@ -110,29 +110,70 @@ function animate() {
 function onClick(e: MouseEvent) {
   if (!store.engine || !canvas.value) return
   const rect = canvas.value.getBoundingClientRect()
-  const scaleX = W / rect.width
-  const scaleY = H / rect.height
+  const scaleX = canvasWidth.value / rect.width
+  const scaleY = canvasHeight.value / rect.height
   const x = (e.clientX - rect.left) * scaleX
   const y = (e.clientY - rect.top) * scaleY
   store.engine.applyImpulse(x, y, 300)
 }
 
+function handleResize() {
+  if (!container.value) return
+  const rect = container.value.getBoundingClientRect()
+  const newWidth = Math.floor(rect.width)
+  const newHeight = Math.floor(rect.height)
+
+  if (newWidth <= 0 || newHeight <= 0) return
+  if (newWidth === canvasWidth.value && newHeight === canvasHeight.value) return
+
+  canvasWidth.value = newWidth
+  canvasHeight.value = newHeight
+  dpr.value = window.devicePixelRatio || 1
+
+  if (canvas.value) {
+    canvas.value.width = newWidth * dpr.value
+    canvas.value.height = newHeight * dpr.value
+    const ctx = canvas.value.getContext('2d')
+    if (ctx) {
+      ctx.setTransform(dpr.value, 0, 0, dpr.value, 0, 0)
+    }
+  }
+
+  store.resize(newWidth, newHeight)
+}
+
+function onContainerResize() {
+  if (resizeTimeout !== null) {
+    clearTimeout(resizeTimeout)
+  }
+  resizeTimeout = window.setTimeout(() => {
+    handleResize()
+  }, 50)
+}
+
 onMounted(() => {
-  animate()
+  if (container.value) {
+    resizeObserver = new ResizeObserver(onContainerResize)
+    resizeObserver.observe(container.value)
+  }
+  nextTick(() => {
+    handleResize()
+    animate()
+  })
 })
 
 onUnmounted(() => {
   if (raf) cancelAnimationFrame(raf)
+  if (resizeObserver) resizeObserver.disconnect()
+  if (resizeTimeout !== null) clearTimeout(resizeTimeout)
 })
 </script>
 
 <template>
-  <div class="relative">
+  <div ref="container" class="w-full flex-1 min-h-0">
     <canvas
       ref="canvas"
-      :width="W"
-      :height="H"
-      class="rounded-lg border border-gray-700 cursor-crosshair w-full max-w-[800px]"
+      class="rounded-lg border border-gray-700 cursor-crosshair w-full h-full block"
       @click="onClick"
     />
   </div>

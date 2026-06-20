@@ -13,7 +13,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-900 text-gray-100 flex flex-col">
+  <div class="h-screen bg-gray-900 text-gray-100 flex flex-col overflow-hidden">
     <!-- Header -->
     <header class="bg-gray-800 border-b border-gray-700 px-6 py-4">
       <h1 class="text-xl font-bold text-white tracking-wide">流体力学 SPH 粒子模拟器</h1>
@@ -23,12 +23,12 @@ onMounted(() => {
     <!-- Main Content -->
     <div class="flex flex-1 overflow-hidden p-4 gap-4">
       <!-- Left: Canvas -->
-      <div class="flex-1 flex flex-col items-start gap-2">
+      <div class="flex-1 min-w-0 flex flex-col min-h-0">
         <FluidCanvas />
       </div>
 
       <!-- Right: Controls -->
-      <div class="flex-shrink-0">
+      <div class="flex-shrink-0 w-72">
         <ControlPanel />
       </div>
     </div>

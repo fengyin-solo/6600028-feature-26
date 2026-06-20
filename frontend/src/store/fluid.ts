@@ -96,5 +96,10 @@ export const useFluidStore = defineStore('fluid', {
         }
       }
     },
+    resize(width: number, height: number) {
+      if (!this.engine) return
+      if (width <= 0 || height <= 0) return
+      this.engine.resize(width, height)
+    },
   },
 })
